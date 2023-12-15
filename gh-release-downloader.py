@@ -1,0 +1,132 @@
+import os
+import requests
+import click
+import json
+import zipfile
+
+def get_github_releases(repo, token, include_prerelease, version_prefix):
+    """
+    Fetches the releases from a GitHub repository that start with a specific version prefix.
+    """
+    headers = {'Authorization': f'token {token}'}
+    url = f"https://api.github.com/repos/{repo}/releases"
+    response = requests.get(url, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"Failed to fetch releases: {response.text}")
+
+    releases = response.json()
+    filtered_releases = [release for release in releases 
+                         if release['tag_name'].startswith(version_prefix)
+                         and (include_prerelease or not release['prerelease'])]
+    return filtered_releases
+
+def download_assets(releases, token, output_dir):
+    """
+    Downloads assets from the provided releases and unzips if they are zip files.
+    """
+    headers = {
+        'Authorization': f'token {token}',
+        'Accept': 'application/octet-stream'
+    }
+    for release in releases:
+        if not release['assets']:
+            raise Exception(f"No assets found for release {release['tag_name']}")
+
+        for asset in release['assets']:
+            asset_url = asset['url']  # Utilitzem 'url', no 'browser_download_url'
+            response = requests.get(asset_url, headers=headers, stream=True)
+            if response.status_code != 200:
+                raise Exception(f"Failed to download asset: {response.text}")
+
+            filename = asset['name']
+            filepath = os.path.join(output_dir, filename)
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+
+            with open(filepath, 'wb') as file:
+                for chunk in response.iter_content(chunk_size=128):
+                    file.write(chunk)
+
+            if filename.endswith('.zip'):
+                unzip_file(filepath, output_dir)
+
+            click.echo(f"Downloaded and extracted {filename}")
+
+def unzip_file(zip_path, extract_to):
+    """
+    Unzips a zip file to the specified directory and then deletes the zip file.
+    """
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        zip_ref.extractall(extract_to)
+    os.remove(zip_path)  # Elimina el fitxer .zip després de descomprimir-lo
+
+def save_last_downloaded_release(release, output_dir, filename='last_release.json'):
+    """
+    Saves the last downloaded release information to a file.
+    """
+    filepath = os.path.join(output_dir, filename)
+    with open(filepath, 'w') as file:
+        json.dump(release, file)
+
+def load_last_downloaded_release(output_dir, filename='last_release.json'):
+    """
+    Loads the last downloaded release information from a file.
+    """
+    filepath = os.path.join(output_dir, filename)
+    if os.path.exists(filepath):
+        with open(filepath, 'r') as file:
+            return json.load(file)
+    return None
+
+def send_slack_notification(webhook_url, release, url_client):
+    """
+    Sends a notification to a Slack webhook.
+    """
+    message = {
+        "text": f":rocket: New release <{release['html_url']}|{release['tag_name']}> deployed at {url_client}"
+    }
+    response = requests.post(webhook_url, json=message)
+    if response.status_code != 200:
+        raise Exception(f"Failed to send Slack notification: {response.text}")
+
+@click.command()
+@click.argument('repo')
+@click.option('--pre-release', is_flag=True, help="Include pre-releases")
+@click.option('--version-prefix', default='', help="Version prefix to filter releases")
+@click.option('--webhook-url', help="Slack webhook URL for notifications")
+@click.option('--url-client', help="Client URL to include in the Slack message")
+@click.option('--output-dir', default='.', help="Directory to save the downloaded assets and the last release file")
+def main(repo, pre_release, version_prefix, webhook_url, url_client, output_dir):
+    """
+    Download assets from a GitHub release and notify via Slack if a webhook is provided.
+    """
+    token = os.getenv('GITHUB_TOKEN')
+    if not token:
+        raise Exception("GitHub token not found in environment variables")
+
+    try:
+        last_downloaded = load_last_downloaded_release(output_dir)
+        releases = get_github_releases(repo, token, pre_release, version_prefix)
+        
+        if not releases:
+            click.echo("No matching releases found.")
+            return
+
+        latest_release = releases[0]  # Assuming the first one is the latest
+        if not latest_release['assets']:
+            raise Exception(f"No assets found for the latest release {latest_release['tag_name']}")
+
+        if last_downloaded and last_downloaded['id'] == latest_release['id']:
+            click.echo("Latest release is already downloaded.")
+            return
+
+        download_assets([latest_release], token, output_dir)
+        save_last_downloaded_release(latest_release, output_dir)
+
+        if webhook_url and url_client:
+            send_slack_notification(webhook_url, latest_release, url_client)
+            click.echo("Slack notification sent.")
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+
+if __name__ == "__main__":
+    main()
