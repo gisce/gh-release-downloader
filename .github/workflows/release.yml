@@ -1,0 +1,35 @@
+name: Release
+
+on:
+  push:
+    tags:
+    - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu18
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+    - name: Build release
+      run: |
+        pyinstaller --onefile -n gh-release-downloader gh-release-downloader.py
+    - name: Publish release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/gh-release-downloader
+        generate_release_notes: true
+    - name: Clean
+      run: |
+        rm -rf dist/
+        rm -rf build/
