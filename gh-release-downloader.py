@@ -3,6 +3,7 @@ import requests
 import click
 import json
 import zipfile
+import shutil
 
 def get_github_releases(repo, token, include_prerelease, version_prefix):
     """
@@ -59,6 +60,10 @@ def unzip_file(zip_path, extract_to):
         zip_ref.extractall(extract_to)
     os.remove(zip_path)  # Elimina el fitxer .zip després de descomprimir-lo
 
+    # Move .map files after extraction
+    maps_dir = os.path.join(extract_to, 'static/maps')
+    move_map_files(extract_to, maps_dir)
+
 def save_last_downloaded_release(release, output_dir, filename='last_release.json'):
     """
     Saves the last downloaded release information to a file.
@@ -87,6 +92,18 @@ def send_slack_notification(webhook_url, release, url_client):
     response = requests.post(webhook_url, json=message)
     if response.status_code != 200:
         raise Exception(f"Failed to send Slack notification: {response.text}")
+
+def move_map_files(source_dir, target_dir):
+    """
+    Moves all .map files from source_dir and its subdirectories to target_dir.
+    """
+    os.makedirs(target_dir, exist_ok=True)  # Create the target directory if it doesn't exist
+    for root, dirs, files in os.walk(source_dir):
+        for file in files:
+            if file.endswith('.map'):
+                source_file = os.path.join(root, file)
+                target_file = os.path.join(target_dir, file)
+                shutil.move(source_file, target_file)
 
 @click.command()
 @click.argument('repo')
