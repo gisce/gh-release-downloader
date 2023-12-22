@@ -16,8 +16,7 @@ homepage = "https://github.com/gisce/gh-release-downloader"
 repository = "https://github.com/gisce/gh-release-downloader"
 documentation = "https://github.com/gisce/gh-release-downloader#readme"
 
-[tool.setuptools]
-install_requires = [
+dependencies = [
     "requests",
     "click"
 ]
