@@ -24,7 +24,7 @@ jobs:
         pip install pyinstaller
     - name: Build release
       run: |
-        pyinstaller --onefile -n gh-release-downloader gh-release-downloader.py
+        pyinstaller --onefile -n gh-release-downloader gh_release_downloader.py
     - name: Publish release
       uses: softprops/action-gh-release@v1
       with:
