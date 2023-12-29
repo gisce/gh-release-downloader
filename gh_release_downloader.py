@@ -16,9 +16,11 @@ def get_github_releases(repo, token, include_prerelease, version_prefix):
         raise Exception(f"Failed to fetch releases: {response.text}")
 
     releases = response.json()
-    filtered_releases = [release for release in releases 
-                         if release['tag_name'].startswith(version_prefix)
-                         and (include_prerelease or not release['prerelease'])]
+    filtered_releases = [
+        release for release in releases
+            if release['tag_name'].startswith(version_prefix)
+            and release['prerelease'] == include_prerelease
+    ]
     return filtered_releases
 
 def download_assets(releases, token, output_dir):
