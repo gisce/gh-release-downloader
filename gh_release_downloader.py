@@ -134,8 +134,8 @@ def main(repo, pre_release, version_prefix, webhook_url, url_client, output_dir)
         if not latest_release['assets']:
             raise Exception(f"No assets found for the latest release {latest_release['tag_name']}")
 
-        if last_downloaded and last_downloaded['id'] == latest_release['id']:
-            click.echo("Latest release is already downloaded.")
+        if last_downloaded and last_downloaded['tag_name'] == latest_release['tag_name']:
+            click.echo(f"Latest release {last_downloaded['tag_name']} is already downloaded.")
             return
 
         download_assets([latest_release], token, output_dir)
