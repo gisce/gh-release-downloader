@@ -4,6 +4,7 @@ on:
   push:
     tags:
     - "v*.*.*"
+    - "v*.*.*-rc"
 
 permissions:
   contents: write
@@ -29,6 +30,7 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: dist/gh-release-downloader
+        prerelease: ${{ contains(github.ref, '-rc') }}
         generate_release_notes: true
     - name: Clean
       run: |
