@@ -4,13 +4,14 @@ on:
   push:
     tags:
     - "v*.*.*"
+    - "v*.*.*-rc"
 
 permissions:
   contents: write
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: [self-hosted, Ubuntu18]
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python
@@ -29,6 +30,7 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: dist/gh-release-downloader
+        prerelease: ${{ contains(github.ref, '-rc') }}
         generate_release_notes: true
     - name: Clean
       run: |
