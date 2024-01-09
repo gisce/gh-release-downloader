@@ -4,6 +4,18 @@ import click
 import json
 import zipfile
 import shutil
+import typing as t
+
+
+class AlreadyLatestVersion(click.ClickException):
+    exit_code = 17
+
+    def show(self, file: t.Optional[t.IO[t.Any]] = None) -> None:
+        if file is None:
+            file = click.exceptions.get_text_stderr()
+
+        click.echo("{message}".format(message=self.format_message()), file=file)
+
 
 def get_github_releases(repo, token, include_prerelease, version_prefix):
     """
@@ -13,7 +25,7 @@ def get_github_releases(repo, token, include_prerelease, version_prefix):
     url = f"https://api.github.com/repos/{repo}/releases"
     response = requests.get(url, headers=headers)
     if response.status_code != 200:
-        raise Exception(f"Failed to fetch releases: {response.text}")
+        raise click.ClickException(f"Failed to fetch releases: {response.text}")
 
     releases = response.json()
     filtered_releases = [
@@ -33,13 +45,13 @@ def download_assets(releases, token, output_dir):
     }
     for release in releases:
         if not release['assets']:
-            raise Exception(f"No assets found for release {release['tag_name']}")
+            raise click.ClickException(f"No assets found for release {release['tag_name']}")
 
         for asset in release['assets']:
             asset_url = asset['url']  # Utilitzem 'url', no 'browser_download_url'
             response = requests.get(asset_url, headers=headers, stream=True)
             if response.status_code != 200:
-                raise Exception(f"Failed to download asset: {response.text}")
+                raise click.ClickException(f"Failed to download asset: {response.text}")
 
             filename = asset['name']
             filepath = os.path.join(output_dir, filename)
@@ -93,7 +105,7 @@ def send_slack_notification(webhook_url, release, url_client):
     }
     response = requests.post(webhook_url, json=message)
     if response.status_code != 200:
-        raise Exception(f"Failed to send Slack notification: {response.text}")
+        raise click.ClickException(f"Failed to send Slack notification: {response.text}")
 
 def move_map_files(source_dir, target_dir):
     """
@@ -120,32 +132,29 @@ def main(repo, pre_release, version_prefix, webhook_url, url_client, output_dir)
     """
     token = os.getenv('GITHUB_TOKEN')
     if not token:
-        raise Exception("GitHub token not found in environment variables")
+        raise click.ClickException("GitHub token not found in environment variables")
 
-    try:
-        last_downloaded = load_last_downloaded_release(output_dir)
-        releases = get_github_releases(repo, token, pre_release, version_prefix)
-        
-        if not releases:
-            click.echo("No matching releases found.")
-            return
+    last_downloaded = load_last_downloaded_release(output_dir)
+    releases = get_github_releases(repo, token, pre_release, version_prefix)
 
-        latest_release = releases[0]  # Assuming the first one is the latest
-        if not latest_release['assets']:
-            raise Exception(f"No assets found for the latest release {latest_release['tag_name']}")
+    if not releases:
+        click.echo("No matching releases found.")
+        return
 
-        if last_downloaded and last_downloaded['tag_name'] == latest_release['tag_name']:
-            click.echo(f"Latest release {last_downloaded['tag_name']} is already downloaded.")
-            return
+    latest_release = releases[0]  # Assuming the first one is the latest
+    if not latest_release['assets']:
+        raise click.ClickException(f"No assets found for the latest release {latest_release['tag_name']}")
 
-        download_assets([latest_release], token, output_dir)
-        save_last_downloaded_release(latest_release, output_dir)
+    if last_downloaded and last_downloaded['tag_name'] == latest_release['tag_name']:
+        raise AlreadyLatestVersion(f"Latest release {last_downloaded['tag_name']} is already downloaded.")
 
-        if webhook_url and url_client:
-            send_slack_notification(webhook_url, latest_release, url_client)
-            click.echo("Slack notification sent.")
-    except Exception as e:
-        click.echo(f"Error: {e}", err=True)
+    download_assets([latest_release], token, output_dir)
+    save_last_downloaded_release(latest_release, output_dir)
+
+    if webhook_url and url_client:
+        send_slack_notification(webhook_url, latest_release, url_client)
+        click.echo("Slack notification sent.")
+
 
 if __name__ == "__main__":
     main()
