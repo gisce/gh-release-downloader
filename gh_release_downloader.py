@@ -17,7 +17,7 @@ class AlreadyLatestVersion(click.ClickException):
         click.echo("{message}".format(message=self.format_message()), file=file)
 
 
-def get_github_releases(repo, token, include_prerelease, version_prefix):
+def get_github_releases(repo, token, include_prerelease, pre_release_type, version_prefix):
     """
     Fetches the releases from a GitHub repository that start with a specific version prefix.
     """
@@ -32,6 +32,7 @@ def get_github_releases(repo, token, include_prerelease, version_prefix):
         release for release in releases
             if release['tag_name'].startswith(version_prefix)
             and release['prerelease'] == include_prerelease
+            and pre_release_type in release['tag_name']
     ]
     return filtered_releases
 
@@ -122,11 +123,12 @@ def move_map_files(source_dir, target_dir):
 @click.command()
 @click.argument('repo')
 @click.option('--pre-release', is_flag=True, help="Include pre-releases")
+@click.option('--pre-release-type', default='', help="Check for this string in relase tag. This implies pre-release versions")
 @click.option('--version-prefix', default='', help="Version prefix to filter releases")
 @click.option('--webhook-url', help="Slack webhook URL for notifications")
 @click.option('--url-client', help="Client URL to include in the Slack message")
 @click.option('--output-dir', default='.', help="Directory to save the downloaded assets and the last release file")
-def main(repo, pre_release, version_prefix, webhook_url, url_client, output_dir):
+def main(repo, pre_release, pre_release_type, version_prefix, webhook_url, url_client, output_dir):
     """
     Download assets from a GitHub release and notify via Slack if a webhook is provided.
     """
@@ -135,7 +137,9 @@ def main(repo, pre_release, version_prefix, webhook_url, url_client, output_dir)
         raise click.ClickException("GitHub token not found in environment variables")
 
     last_downloaded = load_last_downloaded_release(output_dir)
-    releases = get_github_releases(repo, token, pre_release, version_prefix)
+    if pre_release_type:
+        pre_release = True
+    releases = get_github_releases(repo, token, pre_release, pre_release_type, version_prefix)
 
     if not releases:
         click.echo("No matching releases found.")
