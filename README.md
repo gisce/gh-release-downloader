@@ -6,6 +6,7 @@ This project provides a Python script, `gh-release-downloader.py`, for automatin
 
 - Downloads assets from GitHub releases.
 - Option to include only pre-releases or filter by a specific version prefix.
+- Option to include pre-releases types (eg. alpha, beta, rc, etc.)
 - Automatically unzips `.zip` files.
 - Saves a record of the last downloaded release.
 - Sends notifications to Slack upon successful download.
