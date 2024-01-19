@@ -39,7 +39,7 @@ def get_github_releases(repo, token, include_prerelease, pre_release_type, versi
     # Sort releases by semantic versioning
     def semver_sort_key(release):
         try:
-            # Strip leading 'v' or other non-numeric characters if present
+            # Strip leading 'v'
             version_str = release['tag_name'].lstrip('v')
             return semver.VersionInfo.parse(version_str)
         except ValueError:
