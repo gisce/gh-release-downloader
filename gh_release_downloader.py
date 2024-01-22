@@ -5,6 +5,7 @@ import json
 import zipfile
 import shutil
 import typing as t
+import semver
 
 
 class AlreadyLatestVersion(click.ClickException):
@@ -34,7 +35,19 @@ def get_github_releases(repo, token, include_prerelease, pre_release_type, versi
             and release['prerelease'] == include_prerelease
             and pre_release_type in release['tag_name']
     ]
-    return filtered_releases
+
+    # Sort releases by semantic versioning
+    def semver_sort_key(release):
+        try:
+            # Strip leading 'v'
+            version_str = release['tag_name'].lstrip('v')
+            return semver.VersionInfo.parse(version_str)
+        except ValueError:
+            return semver.VersionInfo(0, 0, 0)
+
+    sorted_releases = sorted(filtered_releases, key=semver_sort_key, reverse=True)
+
+    return sorted_releases
 
 def download_assets(releases, token, output_dir):
     """
