@@ -7,6 +7,8 @@ import shutil
 import typing as t
 import semver
 
+__version__ = "0.3.0"
+
 
 class AlreadyLatestVersion(click.ClickException):
     exit_code = 17
@@ -134,6 +136,7 @@ def move_map_files(source_dir, target_dir):
                 shutil.move(source_file, target_file)
 
 @click.command()
+@click.version_option(version=__version__)
 @click.argument('repo')
 @click.option('--pre-release', is_flag=True, help="Include pre-releases")
 @click.option('--pre-release-type', default='', help="Check for this string in relase tag. This implies pre-release versions")
