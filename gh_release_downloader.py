@@ -4,18 +4,7 @@ import click
 import json
 import zipfile
 import shutil
-import typing as t
 import semver
-
-
-class AlreadyLatestVersion(click.ClickException):
-    exit_code = 17
-
-    def show(self, file: t.Optional[t.IO[t.Any]] = None) -> None:
-        if file is None:
-            file = click.exceptions.get_text_stderr()
-
-        click.echo("{message}".format(message=self.format_message()), file=file)
 
 
 def get_github_releases(repo, token, include_prerelease, pre_release_type, version_prefix):
@@ -163,7 +152,8 @@ def main(repo, pre_release, pre_release_type, version_prefix, webhook_url, url_c
         raise click.ClickException(f"No assets found for the latest release {latest_release['tag_name']}")
 
     if last_downloaded and last_downloaded['tag_name'] == latest_release['tag_name']:
-        raise AlreadyLatestVersion(f"Latest release {last_downloaded['tag_name']} is already downloaded.")
+        click.echo(f"Latest release {last_downloaded['tag_name']} is already downloaded.")
+        return
 
     download_assets([latest_release], token, output_dir)
     save_last_downloaded_release(latest_release, output_dir)
