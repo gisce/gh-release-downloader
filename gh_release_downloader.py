@@ -12,6 +12,9 @@ import stat
 import subprocess
 import importlib.metadata
 
+# Constants
+SELF_REPO = 'gisce/gh-release-downloader'
+
 
 class AlreadyLatestVersion(click.ClickException):
     exit_code = 17
@@ -185,7 +188,7 @@ def check_for_updates(token):
         return None
     
     # Get releases from the gh-release-downloader repository
-    releases = get_github_releases('gisce/gh-release-downloader', token, False, '', 'v')
+    releases = get_github_releases(SELF_REPO, token, False, '', 'v')
     
     if not releases:
         click.echo("No releases found for gh-release-downloader")
@@ -208,14 +211,16 @@ def check_for_updates(token):
 def download_and_replace_binary(release, token):
     """
     Downloads the appropriate binary for the current system and replaces the current executable.
+    Note: This assumes the GitHub release contains a single binary named 'gh-release-downloader'.
+    For multi-platform releases, extend the logic to select the correct binary based on OS/arch.
     """
     os_name, arch = get_system_info()
     
     # Find the appropriate asset (assuming the binary is named 'gh-release-downloader')
     binary_asset = None
     for asset in release['assets']:
-        # For now, we assume a single binary named 'gh-release-downloader'
-        # In a real scenario, you might need to match by OS/arch in the filename
+        # Note: Current implementation assumes a single binary.
+        # For multi-platform support, extend this to match OS/arch in filename
         if asset['name'] == 'gh-release-downloader':
             binary_asset = asset
             break
@@ -233,9 +238,6 @@ def download_and_replace_binary(release, token):
     response = requests.get(binary_asset['url'], headers=headers, stream=True)
     if response.status_code != 200:
         raise click.ClickException(f"Failed to download binary: {response.text}")
-    
-    # Get the current executable path
-    current_executable = sys.argv[0]
     
     # Determine if we're running as a script or as a PyInstaller binary
     if getattr(sys, 'frozen', False):
@@ -314,7 +316,7 @@ def perform_auto_update(token):
 @click.command()
 @click.argument('repo')
 @click.option('--pre-release', is_flag=True, help="Include pre-releases")
-@click.option('--pre-release-type', default='', help="Check for this string in relase tag. This implies pre-release versions")
+@click.option('--pre-release-type', default='', help="Check for this string in release tag. This implies pre-release versions")
 @click.option('--version-prefix', default='', help="Version prefix to filter releases")
 @click.option('--webhook-url', help="Slack webhook URL for notifications")
 @click.option('--url-client', help="Client URL to include in the Slack message")
