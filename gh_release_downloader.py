@@ -7,7 +7,12 @@ import shutil
 import typing as t
 import semver
 
-__version__ = "0.3.0"
+try:
+    from importlib.metadata import version
+    __version__ = version("gh-release-downloader")
+except Exception:
+    # Fallback for development or if package is not installed
+    __version__ = "0.0.0.dev"
 
 
 class AlreadyLatestVersion(click.ClickException):
