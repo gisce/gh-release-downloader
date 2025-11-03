@@ -103,9 +103,10 @@ def send_slack_notification(webhook_url, release, url_client):
     """
     Sends a notification to a Slack webhook.
     """
-    message = {
-        "text": f":rocket: New release <{release['html_url']}|{release['tag_name']}> deployed at {url_client}"
-    }
+    message_text = f":rocket: New release <{release['html_url']}|{release['tag_name']}> deployed at {url_client}"
+    if release.get('body'):
+        message_text += f"\n\n*Release notes:*\n{release['body']}"
+    message = {"text": message_text}
     response = requests.post(webhook_url, json=message)
     if response.status_code != 200:
         raise click.ClickException(f"Failed to send Slack notification: {response.text}")
