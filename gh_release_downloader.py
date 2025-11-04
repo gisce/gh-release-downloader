@@ -4,7 +4,6 @@ import click
 import json
 import zipfile
 import shutil
-import typing as t
 import semver
 
 try:
@@ -13,16 +12,6 @@ try:
 except Exception:
     # Fallback for development or if package is not installed
     __version__ = "0.0.0.dev"
-
-
-class AlreadyLatestVersion(click.ClickException):
-    exit_code = 17
-
-    def show(self, file: t.Optional[t.IO[t.Any]] = None) -> None:
-        if file is None:
-            file = click.exceptions.get_text_stderr()
-
-        click.echo("{message}".format(message=self.format_message()), file=file)
 
 
 def get_github_releases(repo, token, include_prerelease, pre_release_type, version_prefix):
@@ -121,9 +110,10 @@ def send_slack_notification(webhook_url, release, url_client):
     """
     Sends a notification to a Slack webhook.
     """
-    message = {
-        "text": f":rocket: New release <{release['html_url']}|{release['tag_name']}> deployed at {url_client}"
-    }
+    message_text = f":rocket: New release <{release['html_url']}|{release['tag_name']}> deployed at {url_client}"
+    if release.get('body'):
+        message_text += f"\n\n*Release notes:*\n{release['body']}"
+    message = {"text": message_text}
     response = requests.post(webhook_url, json=message)
     if response.status_code != 200:
         raise click.ClickException(f"Failed to send Slack notification: {response.text}")
@@ -171,7 +161,8 @@ def main(repo, pre_release, pre_release_type, version_prefix, webhook_url, url_c
         raise click.ClickException(f"No assets found for the latest release {latest_release['tag_name']}")
 
     if last_downloaded and last_downloaded['tag_name'] == latest_release['tag_name']:
-        raise AlreadyLatestVersion(f"Latest release {last_downloaded['tag_name']} is already downloaded.")
+        click.echo(f"Latest release {last_downloaded['tag_name']} is already downloaded.")
+        return
 
     download_assets([latest_release], token, output_dir)
     save_last_downloaded_release(latest_release, output_dir)
