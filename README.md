@@ -10,6 +10,7 @@ This project provides a Python script, `gh-release-downloader.py`, for automatin
 - Automatically unzips `.zip` files.
 - Saves a record of the last downloaded release.
 - Sends notifications to Slack upon successful download.
+- Auto-update functionality to keep gh-release-downloader up to date.
 
 ## Requirements
 
@@ -37,6 +38,26 @@ python gh-release-downloader.py <owner/repo> --pre-release --version-prefix "v1"
 ```
 
 Replace `<owner/repo>` with the owner and the name of the GitHub repository from which you want to download assets.
+
+### Auto-Update
+
+**Auto-update is enabled by default.** The tool will automatically check for and install updates before running.
+
+To disable automatic updates, use the `--no-auto-update` flag:
+
+```bash
+gh-release-downloader <owner/repo> --no-auto-update
+```
+
+When auto-update is enabled, the tool will:
+1. Check if a newer version is available
+2. Download and install the updated binary (only for PyInstaller binary installations)
+3. Re-execute with the same arguments
+
+**Note:** Auto-update only works with binary installations created via PyInstaller. For Python script installations, update manually with:
+```bash
+pip install --upgrade gh-release-downloader
+```
 
 ## Slack Configuration
 

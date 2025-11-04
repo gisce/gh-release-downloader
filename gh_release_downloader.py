@@ -6,6 +6,12 @@ import json
 import zipfile
 import shutil
 import semver
+import sys
+import platform
+import stat
+
+# Constants
+SELF_REPO = 'gisce/gh-release-downloader'
 
 try:
     from importlib.metadata import version
@@ -226,22 +232,223 @@ def move_map_files(source_dir, target_dir):
                 target_file = os.path.join(target_dir, file)
                 shutil.move(source_file, target_file)
 
+def get_system_info():
+    """
+    Detects the current OS and architecture.
+    Returns a tuple (os_name, architecture) normalized for binary selection.
+    """
+    system = platform.system().lower()
+    machine = platform.machine().lower()
+    
+    # Normalize OS name
+    if system == 'darwin':
+        os_name = 'macos'
+    else:
+        os_name = system
+    
+    # Normalize architecture
+    if machine in ['x86_64', 'amd64']:
+        arch = 'x86_64'
+    elif machine in ['aarch64', 'arm64']:
+        arch = 'arm64'
+    else:
+        arch = machine
+    
+    return os_name, arch
+
+def normalize_version_to_semver(version_string):
+    """
+    Normalizes a PEP 440 version string to semver format.
+    Converts formats like '0.5.0rc1' to '0.5.0-rc1'.
+    """
+    import re
+    # Pattern to match PEP 440 pre-release versions (e.g., 0.5.0rc1, 1.0.0a1, 2.0.0b2)
+    # and convert them to semver format (e.g., 0.5.0-rc1, 1.0.0-a1, 2.0.0-b2)
+    pattern = r'^(\d+\.\d+\.\d+)((?:a|alpha|b|beta|rc)[\d]+)(.*)$'
+    match = re.match(pattern, version_string)
+    if match:
+        version_core = match.group(1)
+        prerelease = match.group(2)
+        rest = match.group(3)
+        # Add a dash before the pre-release identifier
+        return f"{version_core}-{prerelease}{rest}"
+    return version_string
+
+def check_for_updates(token):
+    """
+    Checks if there is a newer version available for gh-release-downloader.
+    Returns the latest release if a newer version exists, None otherwise.
+    If current version is a pre-release, also checks for pre-release versions.
+    """
+    current_version = __version__
+    # Normalize PEP 440 version to semver format
+    normalized_version = normalize_version_to_semver(current_version)
+    
+    try:
+        current_semver = semver.VersionInfo.parse(normalized_version)
+    except ValueError:
+        click.echo(f"Warning: Could not parse current version '{current_version}' (normalized: '{normalized_version}')")
+        return None
+    
+    # If current version is a pre-release, also check for pre-release versions
+    include_prerelease = bool(current_semver.prerelease)
+    
+    # Get releases from the gh-release-downloader repository
+    releases = get_github_releases(SELF_REPO, token, include_prerelease, '', 'v')
+    
+    if not releases:
+        click.echo("No releases found for gh-release-downloader")
+        return None
+    
+    latest_release = releases[0]
+    latest_version_str = latest_release['tag_name'].lstrip('v')
+    
+    try:
+        latest_semver = semver.VersionInfo.parse(latest_version_str)
+    except ValueError:
+        click.echo(f"Warning: Could not parse latest version '{latest_version_str}'")
+        return None
+    
+    if latest_semver > current_semver:
+        return latest_release
+    
+    return None
+
+def download_and_replace_binary(release, token):
+    """
+    Downloads the appropriate binary for the current system and replaces the current executable.
+    Note: This assumes the GitHub release contains a single binary named 'gh-release-downloader'.
+    For multi-platform releases, extend the logic to select the correct binary based on OS/arch.
+    """
+    os_name, arch = get_system_info()
+    
+    # Find the appropriate asset (assuming the binary is named 'gh-release-downloader')
+    binary_asset = None
+    for asset in release['assets']:
+        # Note: Current implementation assumes a single binary.
+        # For multi-platform support, extend this to match OS/arch in filename
+        if asset['name'] == 'gh-release-downloader':
+            binary_asset = asset
+            break
+    
+    if not binary_asset:
+        raise click.ClickException(f"No suitable binary found for {os_name}/{arch} in release {release['tag_name']}")
+    
+    # Download the binary
+    headers = {
+        'Authorization': f'token {token}',
+        'Accept': 'application/octet-stream'
+    }
+    
+    click.echo(f"Downloading {binary_asset['name']}...")
+    response = requests.get(binary_asset['url'], headers=headers, stream=True)
+    if response.status_code != 200:
+        raise click.ClickException(f"Failed to download binary: {response.text}")
+    
+    # Determine if we're running as a script or as a PyInstaller binary
+    if getattr(sys, 'frozen', False):
+        # Running as PyInstaller binary
+        target_path = sys.executable
+    else:
+        # Running as a script - cannot self-update
+        raise click.ClickException("Auto-update is only supported for binary installations. Please update manually with: pip install --upgrade gh-release-downloader")
+    
+    # Create a temporary file for the new binary
+    temp_path = target_path + '.new'
+    
+    try:
+        # Write the new binary
+        with open(temp_path, 'wb') as file:
+            for chunk in response.iter_content(chunk_size=8192):
+                file.write(chunk)
+        
+        # Make it executable
+        st = os.stat(temp_path)
+        os.chmod(temp_path, st.st_mode | stat.S_IEXEC | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+        
+        # Backup the old binary
+        backup_path = target_path + '.old'
+        if os.path.exists(backup_path):
+            os.remove(backup_path)
+        
+        # Replace the binary
+        os.rename(target_path, backup_path)
+        os.rename(temp_path, target_path)
+        
+        click.echo(f"Successfully updated to version {release['tag_name']}")
+        
+        # Clean up backup
+        if os.path.exists(backup_path):
+            os.remove(backup_path)
+        
+        return True
+        
+    except Exception as e:
+        # Rollback on error
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        
+        backup_path = target_path + '.old'
+        if os.path.exists(backup_path) and not os.path.exists(target_path):
+            os.rename(backup_path, target_path)
+        
+        raise click.ClickException(f"Failed to update binary: {str(e)}")
+
+def perform_auto_update(token):
+    """
+    Performs the auto-update check and update if a newer version is available.
+    """
+    # Check if we just updated (to prevent infinite loop)
+    if os.environ.get('GH_RELEASE_DOWNLOADER_SKIP_UPDATE') == '1':
+        return False
+    
+    click.echo("Checking for updates...")
+    
+    latest_release = check_for_updates(token)
+    
+    if not latest_release:
+        click.echo("You are already running the latest version.")
+        return False
+    
+    current_version = __version__
+    latest_version = latest_release['tag_name']
+    
+    click.echo(f"New version available: {latest_version} (current: v{current_version})")
+    
+    # Download and replace the binary
+    download_and_replace_binary(latest_release, token)
+    
+    # Re-execute with the same arguments (excluding --auto-update and --no-auto-update)
+    # Set environment variable to skip update check on next execution
+    env = os.environ.copy()
+    env['GH_RELEASE_DOWNLOADER_SKIP_UPDATE'] = '1'
+    
+    args = [arg for arg in sys.argv if arg not in ['--auto-update', '--no-auto-update']]
+    click.echo(f"Re-executing with updated binary...")
+    os.execve(sys.executable, args, env)
+
 @click.command()
 @click.version_option(version=__version__)
 @click.argument('repo')
 @click.option('--pre-release', is_flag=True, help="Include pre-releases")
-@click.option('--pre-release-type', default='', help="Check for this string in relase tag. This implies pre-release versions")
+@click.option('--pre-release-type', default='', help="Check for this string in release tag. This implies pre-release versions")
 @click.option('--version-prefix', default='', help="Version prefix to filter releases")
 @click.option('--webhook-url', help="Slack webhook URL for notifications")
 @click.option('--url-client', help="Client URL to include in the Slack message")
 @click.option('--output-dir', default='.', help="Directory to save the downloaded assets and the last release file")
-def main(repo, pre_release, pre_release_type, version_prefix, webhook_url, url_client, output_dir):
+@click.option('--auto-update/--no-auto-update', default=True, help="Check for updates to gh-release-downloader and auto-update if available (enabled by default)")
+def main(repo, pre_release, pre_release_type, version_prefix, webhook_url, url_client, output_dir, auto_update):
     """
     Download assets from a GitHub release and notify via Slack if a webhook is provided.
     """
     token = os.getenv('GITHUB_TOKEN')
     if not token:
         raise click.ClickException("GitHub token not found in environment variables")
+
+    # Perform auto-update check if requested
+    if auto_update:
+        perform_auto_update(token)
+        # If we reach here, no update was needed, continue with normal execution
 
     last_downloaded = load_last_downloaded_release(output_dir)
     if pre_release_type:
