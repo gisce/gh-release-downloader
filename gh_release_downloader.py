@@ -235,21 +235,45 @@ def get_system_info():
     
     return os_name, arch
 
+def normalize_version_to_semver(version_string):
+    """
+    Normalizes a PEP 440 version string to semver format.
+    Converts formats like '0.5.0rc1' to '0.5.0-rc1'.
+    """
+    import re
+    # Pattern to match PEP 440 pre-release versions (e.g., 0.5.0rc1, 1.0.0a1, 2.0.0b2)
+    # and convert them to semver format (e.g., 0.5.0-rc1, 1.0.0-a1, 2.0.0-b2)
+    pattern = r'^(\d+\.\d+\.\d+)((?:a|alpha|b|beta|rc)[\d]+)(.*)$'
+    match = re.match(pattern, version_string)
+    if match:
+        version_core = match.group(1)
+        prerelease = match.group(2)
+        rest = match.group(3)
+        # Add a dash before the pre-release identifier
+        return f"{version_core}-{prerelease}{rest}"
+    return version_string
+
 def check_for_updates(token):
     """
     Checks if there is a newer version available for gh-release-downloader.
     Returns the latest release if a newer version exists, None otherwise.
+    If current version is a pre-release, also checks for pre-release versions.
     """
     current_version = __version__
+    # Normalize PEP 440 version to semver format
+    normalized_version = normalize_version_to_semver(current_version)
     
     try:
-        current_semver = semver.VersionInfo.parse(current_version)
+        current_semver = semver.VersionInfo.parse(normalized_version)
     except ValueError:
-        click.echo(f"Warning: Could not parse current version '{current_version}'")
+        click.echo(f"Warning: Could not parse current version '{current_version}' (normalized: '{normalized_version}')")
         return None
     
+    # If current version is a pre-release, also check for pre-release versions
+    include_prerelease = bool(current_semver.prerelease)
+    
     # Get releases from the gh-release-downloader repository
-    releases = get_github_releases(SELF_REPO, token, False, '', 'v')
+    releases = get_github_releases(SELF_REPO, token, include_prerelease, '', 'v')
     
     if not releases:
         click.echo("No releases found for gh-release-downloader")
