@@ -302,6 +302,10 @@ def perform_auto_update(token):
     """
     Performs the auto-update check and update if a newer version is available.
     """
+    # Check if we just updated (to prevent infinite loop)
+    if os.environ.get('GH_RELEASE_DOWNLOADER_SKIP_UPDATE') == '1':
+        return False
+    
     click.echo("Checking for updates...")
     
     latest_release = check_for_updates(token)
@@ -319,9 +323,13 @@ def perform_auto_update(token):
     download_and_replace_binary(latest_release, token)
     
     # Re-execute with the same arguments (excluding --auto-update and --no-auto-update)
+    # Set environment variable to skip update check on next execution
+    env = os.environ.copy()
+    env['GH_RELEASE_DOWNLOADER_SKIP_UPDATE'] = '1'
+    
     args = [arg for arg in sys.argv if arg not in ['--auto-update', '--no-auto-update']]
     click.echo(f"Re-executing with updated binary...")
-    os.execv(sys.executable, args)
+    os.execve(sys.executable, args, env)
 
 @click.command()
 @click.version_option(version=__version__)
