@@ -41,13 +41,15 @@ Replace `<owner/repo>` with the owner and the name of the GitHub repository from
 
 ### Auto-Update
 
-To enable automatic updates of gh-release-downloader itself, use the `--auto-update` flag:
+**Auto-update is enabled by default.** The tool will automatically check for and install updates before running.
+
+To disable automatic updates, use the `--no-auto-update` flag:
 
 ```bash
-gh-release-downloader <owner/repo> --auto-update
+gh-release-downloader <owner/repo> --no-auto-update
 ```
 
-When enabled, the tool will:
+When auto-update is enabled, the tool will:
 1. Check if a newer version is available
 2. Download and install the updated binary (only for PyInstaller binary installations)
 3. Re-execute with the same arguments
