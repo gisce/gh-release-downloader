@@ -42,6 +42,50 @@ Replace `<owner/repo>` with the owner and the name of the GitHub repository from
 
 To receive notifications on Slack, you will need to set up a webhook in Slack and pass it as the `--webhook-url` parameter. Notifications will include details of the downloaded release and the link provided in `--url-client`.
 
+### Markdown to Slack Format Transformer
+
+The project includes a `markdown_to_slack_format()` function that automatically converts GitHub markdown to Slack-compatible format. This function is used internally for Slack notifications but can also be imported and used in other scripts or bots.
+
+**Features:**
+- Converts headers (`#` -> uppercase/formatted text)
+- Converts links `[text](url)` -> `<url|text>`
+- Converts bold `**text**` -> `*text*` (Slack format)
+- Converts italic `*text*` or `_text_` -> `_text_` (Slack format)
+- Converts list markers (`-`, `*`, `+`) -> bullet points (`•`)
+- Preserves code blocks and quotes
+- Handles nested formatting correctly
+
+**Usage Example:**
+
+```python
+from gh_release_downloader import markdown_to_slack_format
+
+# GitHub markdown
+markdown_text = """## Release v1.0.0
+
+- Added **new feature** with [documentation](https://example.com)
+- Fixed _critical bug_
+
+```bash
+pip install package
+```
+"""
+
+# Convert to Slack format
+slack_text = markdown_to_slack_format(markdown_text)
+# Result:
+# *Release v1.0.0*
+# 
+# • Added *new feature* with <https://example.com|documentation>
+# • Fixed _critical bug_
+# 
+# ```bash
+# pip install package
+# ```
+```
+
+See `example_usage.py` for more examples of using this function in your own scripts or bots.
+
 ## Contributions
 
 Contributions to this project are welcome. Please open an issue or submit a Pull Request with your suggestions and improvements.
