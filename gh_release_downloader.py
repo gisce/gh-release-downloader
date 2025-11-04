@@ -148,13 +148,14 @@ def markdown_to_slack_format(text):
             line = re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<\2|\1>', line)
             
             # Convert bold first: **text** or __text__ -> *text* (Slack format)
-            # Use a unique placeholder string to avoid conflicts
-            BOLD_PLACEHOLDER = '\x00SLACKBOLD\x00'
+            # Use a unique placeholder string to avoid conflicts with subsequent conversions
+            BOLD_PLACEHOLDER = '<<<SLACKBOLD>>>'
             line = re.sub(r'\*\*(.+?)\*\*', lambda m: f'{BOLD_PLACEHOLDER}{m.group(1)}{BOLD_PLACEHOLDER}', line)
             line = re.sub(r'__(.+?)__', lambda m: f'{BOLD_PLACEHOLDER}{m.group(1)}{BOLD_PLACEHOLDER}', line)
             
             # Convert italic: remaining single *text* -> _text_ (Slack format)
-            # This won't interfere with bold since we already converted it
+            # Pattern matches single asterisks that aren't preceded or followed by another asterisk
+            # This ensures we only convert italic markdown, not remnants of bold conversion
             line = re.sub(r'(?<!\*)\*([^*]+?)\*(?!\*)', r'_\1_', line)
             
             # Restore bold markers with Slack format
