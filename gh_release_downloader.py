@@ -318,8 +318,8 @@ def perform_auto_update(token):
     # Download and replace the binary
     download_and_replace_binary(latest_release, token)
     
-    # Re-execute with the same arguments (excluding --auto-update)
-    args = [arg for arg in sys.argv if arg != '--auto-update']
+    # Re-execute with the same arguments (excluding --auto-update and --no-auto-update)
+    args = [arg for arg in sys.argv if arg not in ['--auto-update', '--no-auto-update']]
     click.echo(f"Re-executing with updated binary...")
     os.execv(sys.executable, args)
 
@@ -332,7 +332,7 @@ def perform_auto_update(token):
 @click.option('--webhook-url', help="Slack webhook URL for notifications")
 @click.option('--url-client', help="Client URL to include in the Slack message")
 @click.option('--output-dir', default='.', help="Directory to save the downloaded assets and the last release file")
-@click.option('--auto-update', is_flag=True, help="Check for updates to gh-release-downloader and auto-update if available")
+@click.option('--auto-update/--no-auto-update', default=True, help="Check for updates to gh-release-downloader and auto-update if available (enabled by default)")
 def main(repo, pre_release, pre_release_type, version_prefix, webhook_url, url_client, output_dir, auto_update):
     """
     Download assets from a GitHub release and notify via Slack if a webhook is provided.
