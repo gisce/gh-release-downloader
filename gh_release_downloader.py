@@ -6,6 +6,13 @@ import zipfile
 import shutil
 import semver
 
+try:
+    from importlib.metadata import version
+    __version__ = version("gh-release-downloader")
+except Exception:
+    # Fallback for development or if package is not installed
+    __version__ = "0.0.0.dev"
+
 
 def get_github_releases(repo, token, include_prerelease, pre_release_type, version_prefix):
     """
@@ -124,6 +131,7 @@ def move_map_files(source_dir, target_dir):
                 shutil.move(source_file, target_file)
 
 @click.command()
+@click.version_option(version=__version__)
 @click.argument('repo')
 @click.option('--pre-release', is_flag=True, help="Include pre-releases")
 @click.option('--pre-release-type', default='', help="Check for this string in relase tag. This implies pre-release versions")
