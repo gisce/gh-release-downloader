@@ -106,13 +106,95 @@ def load_last_downloaded_release(output_dir, filename='last_release.json'):
             return json.load(file)
     return None
 
+def markdown_to_slack_format(text):
+    """
+    Converts GitHub markdown to Slack-compatible format.
+    
+    Transformations:
+    - Headers (# -> uppercase text, no #)
+    - Links [text](url) -> <url|text>
+    - Bold **text** and __text__ -> *text* (Slack format)
+    - Italic *text* and _text_ -> _text_ (Slack format)
+    - Lists (- or * -> •)
+    - Code blocks and quotes are maintained
+    - Removes unsupported markdown
+    """
+    import re
+    
+    if not text:
+        return text
+    
+    lines = text.split('\n')
+    converted_lines = []
+    in_code_block = False
+    
+    for line in lines:
+        # Check for code block delimiters
+        if line.strip().startswith('```'):
+            in_code_block = not in_code_block
+            converted_lines.append(line)
+            continue
+        
+        # Don't process lines inside code blocks
+        if in_code_block:
+            converted_lines.append(line)
+            continue
+        
+        # Convert headers (# Header -> HEADER or with emoji)
+        header_match = re.match(r'^(#{1,6})\s+(.+)$', line)
+        if header_match:
+            header_level = len(header_match.group(1))
+            header_text = header_match.group(2).strip()
+            # Convert to uppercase for emphasis
+            if header_level == 1:
+                line = f"*{header_text.upper()}*"
+            elif header_level == 2:
+                line = f"*{header_text}*"
+            else:
+                line = f"_{header_text}_"
+        
+        # Convert markdown links [text](url) to Slack format <url|text>
+        line = re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<\2|\1>', line)
+        
+        # Convert bold: **text** or __text__ -> *text* (Slack format)
+        line = re.sub(r'\*\*(.+?)\*\*', r'*\1*', line)
+        line = re.sub(r'__(.+?)__', r'*\1*', line)
+        
+        # Convert italic: *text* -> _text_ (Slack format) - but be careful with bold
+        # We need to handle this carefully to not interfere with bold
+        # First, temporarily replace bold markers
+        bold_placeholders = []
+        def save_bold(match):
+            bold_placeholders.append(match.group(0))
+            return f"___BOLD_{len(bold_placeholders)-1}___"
+        line = re.sub(r'\*[^*]+\*', save_bold, line)
+        
+        # Now convert remaining single asterisks (italic) to underscores
+        line = re.sub(r'(?<!\*)\*(?!\*)([^*]+?)(?<!\*)\*(?!\*)', r'_\1_', line)
+        
+        # Restore bold markers
+        for i, bold_text in enumerate(bold_placeholders):
+            line = line.replace(f"___BOLD_{i}___", bold_text)
+        
+        # Also handle underscore italic: _text_ is already Slack format, but avoid double underscores
+        # Single underscores are already italic in Slack, so we're good
+        
+        # Convert list markers (-, *, +) to bullet points
+        line = re.sub(r'^(\s*)([-*+])\s+', r'\1• ', line)
+        
+        converted_lines.append(line)
+    
+    return '\n'.join(converted_lines)
+
 def send_slack_notification(webhook_url, release, url_client):
     """
     Sends a notification to a Slack webhook.
     """
     message_text = f":rocket: New release <{release['html_url']}|{release['tag_name']}> deployed at {url_client}"
     if release.get('body'):
-        message_text += f"\n\n*Release notes:*\n{release['body']}"
+        # Convert markdown to Slack format
+        formatted_body = markdown_to_slack_format(release['body'])
+        message_text += f"\n\n*Release notes:*\n{formatted_body}"
     message = {"text": message_text}
     response = requests.post(webhook_url, json=message)
     if response.status_code != 200:
