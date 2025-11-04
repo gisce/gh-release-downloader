@@ -139,6 +139,20 @@ pip install package
         expected = "*Check <https://example.com|this>* for details"
         result = markdown_to_slack_format(input_text)
         self.assertEqual(result, expected)
+    
+    def test_header_with_link(self):
+        """Test headers containing links are converted properly"""
+        # H1 with link - note that H1 uppercases everything including URLs
+        input_text = "# [2.105.0](https://github.com/user/repo/compare/v2.104.0...v2.105.0)"
+        expected = "*<HTTPS://GITHUB.COM/USER/REPO/COMPARE/V2.104.0...V2.105.0|2.105.0>*"
+        result = markdown_to_slack_format(input_text)
+        self.assertEqual(result, expected)
+        
+        # H2 with link - H2 preserves case
+        input_text2 = "## [Release Notes](https://example.com/notes)"
+        expected2 = "*<https://example.com/notes|Release Notes>*"
+        result2 = markdown_to_slack_format(input_text2)
+        self.assertEqual(result2, expected2)
 
 
 if __name__ == '__main__':

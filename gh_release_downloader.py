@@ -167,6 +167,10 @@ def markdown_to_slack_format(text):
             # Convert headers after all other markdown conversions
             header_level = len(header_match.group(1))
             header_text = header_match.group(2).strip()
+            
+            # Convert links in header text to Slack format
+            header_text = re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<\2|\1>', header_text)
+            
             # Convert to uppercase for emphasis
             if header_level == 1:
                 line = f"*{header_text.upper()}*"
