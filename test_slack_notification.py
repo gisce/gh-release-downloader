@@ -15,7 +15,7 @@ class TestSlackNotification(unittest.TestCase):
         self.release = {
             'html_url': 'https://github.com/test/repo/releases/tag/v1.0.0',
             'tag_name': 'v1.0.0',
-            'body': '## What\'s New\n\n- Added **new feature**\n- Fixed bug'
+            'body': "## What's New\n\n- Added **new feature**\n- Fixed bug"
         }
     
     @patch('gh_release_downloader.requests.post')
