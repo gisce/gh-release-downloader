@@ -1,4 +1,5 @@
 import os
+import re
 import requests
 import click
 import json
@@ -119,8 +120,6 @@ def markdown_to_slack_format(text):
     - Code blocks and quotes are maintained
     - Removes unsupported markdown
     """
-    import re
-    
     if not text:
         return text
     
@@ -140,9 +139,31 @@ def markdown_to_slack_format(text):
             converted_lines.append(line)
             continue
         
-        # Convert headers (# Header -> HEADER or with emoji)
+        # Check if this is a header line (process it separately)
         header_match = re.match(r'^(#{1,6})\s+(.+)$', line)
-        if header_match:
+        is_header = header_match is not None
+        
+        if not is_header:
+            # Convert markdown links [text](url) to Slack format <url|text>
+            line = re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<\2|\1>', line)
+            
+            # Convert bold first: **text** or __text__ -> *text* (Slack format)
+            # Use a unique placeholder string to avoid conflicts
+            BOLD_PLACEHOLDER = '\x00SLACKBOLD\x00'
+            line = re.sub(r'\*\*(.+?)\*\*', lambda m: f'{BOLD_PLACEHOLDER}{m.group(1)}{BOLD_PLACEHOLDER}', line)
+            line = re.sub(r'__(.+?)__', lambda m: f'{BOLD_PLACEHOLDER}{m.group(1)}{BOLD_PLACEHOLDER}', line)
+            
+            # Convert italic: remaining single *text* -> _text_ (Slack format)
+            # This won't interfere with bold since we already converted it
+            line = re.sub(r'(?<!\*)\*([^*]+?)\*(?!\*)', r'_\1_', line)
+            
+            # Restore bold markers with Slack format
+            line = line.replace(BOLD_PLACEHOLDER, '*')
+            
+            # Convert list markers (-, *, +) to bullet points
+            line = re.sub(r'^(\s*)([-*+])\s+', r'\1• ', line)
+        else:
+            # Convert headers after all other markdown conversions
             header_level = len(header_match.group(1))
             header_text = header_match.group(2).strip()
             # Convert to uppercase for emphasis
@@ -152,35 +173,6 @@ def markdown_to_slack_format(text):
                 line = f"*{header_text}*"
             else:
                 line = f"_{header_text}_"
-        
-        # Convert markdown links [text](url) to Slack format <url|text>
-        line = re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<\2|\1>', line)
-        
-        # Convert bold: **text** or __text__ -> *text* (Slack format)
-        line = re.sub(r'\*\*(.+?)\*\*', r'*\1*', line)
-        line = re.sub(r'__(.+?)__', r'*\1*', line)
-        
-        # Convert italic: *text* -> _text_ (Slack format) - but be careful with bold
-        # We need to handle this carefully to not interfere with bold
-        # First, temporarily replace bold markers
-        bold_placeholders = []
-        def save_bold(match):
-            bold_placeholders.append(match.group(0))
-            return f"___BOLD_{len(bold_placeholders)-1}___"
-        line = re.sub(r'\*[^*]+\*', save_bold, line)
-        
-        # Now convert remaining single asterisks (italic) to underscores
-        line = re.sub(r'(?<!\*)\*(?!\*)([^*]+?)(?<!\*)\*(?!\*)', r'_\1_', line)
-        
-        # Restore bold markers
-        for i, bold_text in enumerate(bold_placeholders):
-            line = line.replace(f"___BOLD_{i}___", bold_text)
-        
-        # Also handle underscore italic: _text_ is already Slack format, but avoid double underscores
-        # Single underscores are already italic in Slack, so we're good
-        
-        # Convert list markers (-, *, +) to bullet points
-        line = re.sub(r'^(\s*)([-*+])\s+', r'\1• ', line)
         
         converted_lines.append(line)
     
