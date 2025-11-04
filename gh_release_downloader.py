@@ -171,9 +171,26 @@ def markdown_to_slack_format(text):
             # Convert links in header text to Slack format
             header_text = re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<\2|\1>', header_text)
             
-            # Convert to uppercase for emphasis
+            # For H1 headers, uppercase only the text, not URLs in Slack links
             if header_level == 1:
-                line = f"*{header_text.upper()}*"
+                # Preserve URLs by replacing them temporarily, uppercase the rest, then restore
+                url_placeholder_map = {}
+                def preserve_url(match):
+                    placeholder = f"__URL_PLACEHOLDER_{len(url_placeholder_map)}__"
+                    url_placeholder_map[placeholder] = match.group(0)
+                    return placeholder
+                
+                # Extract and preserve Slack-formatted links
+                header_text = re.sub(r'<[^>]+>', preserve_url, header_text)
+                
+                # Uppercase the remaining text
+                header_text = header_text.upper()
+                
+                # Restore the preserved URLs
+                for placeholder, original_url in url_placeholder_map.items():
+                    header_text = header_text.replace(placeholder, original_url)
+                
+                line = f"*{header_text}*"
             elif header_level == 2:
                 line = f"*{header_text}*"
             else:

@@ -142,9 +142,9 @@ pip install package
     
     def test_header_with_link(self):
         """Test headers containing links are converted properly"""
-        # H1 with link - note that H1 uppercases everything including URLs
+        # H1 with link - URLs are preserved in lowercase, text outside links is uppercased
         input_text = "# [2.105.0](https://github.com/user/repo/compare/v2.104.0...v2.105.0)"
-        expected = "*<HTTPS://GITHUB.COM/USER/REPO/COMPARE/V2.104.0...V2.105.0|2.105.0>*"
+        expected = "*<https://github.com/user/repo/compare/v2.104.0...v2.105.0|2.105.0>*"
         result = markdown_to_slack_format(input_text)
         self.assertEqual(result, expected)
         
@@ -153,6 +153,18 @@ pip install package
         expected2 = "*<https://example.com/notes|Release Notes>*"
         result2 = markdown_to_slack_format(input_text2)
         self.assertEqual(result2, expected2)
+    
+    def test_h1_with_link_and_text(self):
+        """Test H1 header with link and additional text - URLs stay lowercase, text uppercases"""
+        input_text = "# [2.105.0](https://github.com/gisce/webclient/compare/v2.104.0...v2.105.0) (2025-10-31)"
+        result = markdown_to_slack_format(input_text)
+        # The URL should remain lowercase, but surrounding text should be uppercase
+        self.assertIn("https://github.com/gisce/webclient/compare/v2.104.0...v2.105.0", result)
+        self.assertIn("(2025-10-31)", result)
+        # Check that the date part is uppercased
+        self.assertIn("*<https://", result)
+        expected = "*<https://github.com/gisce/webclient/compare/v2.104.0...v2.105.0|2.105.0> (2025-10-31)*"
+        self.assertEqual(result, expected)
 
 
 if __name__ == '__main__':
