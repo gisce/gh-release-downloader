@@ -206,12 +206,18 @@ def markdown_to_slack_format(text):
     
     return '\n'.join(converted_lines)
 
-def send_slack_notification(webhook_url, release, url_client):
+def send_slack_notification(webhook_url, release, url_client, include_body=False):
     """
     Sends a notification to a Slack webhook.
+    
+    Args:
+        webhook_url: The Slack webhook URL
+        release: The release object from GitHub
+        url_client: The client URL to include in the message
+        include_body: Whether to include the release body (default: False)
     """
     message_text = f":rocket: New release <{release['html_url']}|{release['tag_name']}> deployed at {url_client}"
-    if release.get('body'):
+    if include_body and release.get('body'):
         # Convert markdown to Slack format
         formatted_body = markdown_to_slack_format(release['body'])
         message_text += f"\n\n*Release notes:*\n{formatted_body}"
@@ -437,7 +443,8 @@ def perform_auto_update(token):
 @click.option('--url-client', help="Client URL to include in the Slack message")
 @click.option('--output-dir', default='.', help="Directory to save the downloaded assets and the last release file")
 @click.option('--auto-update/--no-auto-update', default=True, help="Check for updates to gh-release-downloader and auto-update if available (enabled by default)")
-def main(repo, pre_release, pre_release_type, version_prefix, webhook_url, url_client, output_dir, auto_update):
+@click.option('--include-release-body', is_flag=True, default=False, help="Include the release body/notes in Slack notifications (disabled by default)")
+def main(repo, pre_release, pre_release_type, version_prefix, webhook_url, url_client, output_dir, auto_update, include_release_body):
     """
     Download assets from a GitHub release and notify via Slack if a webhook is provided.
     """
@@ -471,7 +478,7 @@ def main(repo, pre_release, pre_release_type, version_prefix, webhook_url, url_c
     save_last_downloaded_release(latest_release, output_dir)
 
     if webhook_url and url_client:
-        send_slack_notification(webhook_url, latest_release, url_client)
+        send_slack_notification(webhook_url, latest_release, url_client, include_release_body)
         click.echo("Slack notification sent.")
 
 

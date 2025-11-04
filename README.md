@@ -63,6 +63,16 @@ pip install --upgrade gh-release-downloader
 
 To receive notifications on Slack, you will need to set up a webhook in Slack and pass it as the `--webhook-url` parameter. Notifications will include details of the downloaded release and the link provided in `--url-client`.
 
+### Including Release Body in Slack Notifications
+
+By default, Slack notifications only include the release tag and deployment URL. To also include the release body/notes in the notification, use the `--include-release-body` flag:
+
+```bash
+gh-release-downloader <owner/repo> --webhook-url "YOUR_SLACK_WEBHOOK_URL" --url-client "YOUR_CLIENT_URL" --include-release-body
+```
+
+When enabled, the release notes will be automatically converted from GitHub markdown format to Slack-compatible format.
+
 ### Markdown to Slack Format Transformer
 
 The project includes a `markdown_to_slack_format()` function that automatically converts GitHub markdown to Slack-compatible format. This function is used internally for Slack notifications but can also be imported and used in other scripts or bots.
