@@ -8,8 +8,6 @@ import semver
 import sys
 import platform
 import stat
-import subprocess
-import importlib.metadata
 
 # Constants
 SELF_REPO = 'gisce/gh-release-downloader'
@@ -138,15 +136,6 @@ def move_map_files(source_dir, target_dir):
                 target_file = os.path.join(target_dir, file)
                 shutil.move(source_file, target_file)
 
-def get_current_version():
-    """
-    Gets the current version of gh-release-downloader.
-    """
-    try:
-        return importlib.metadata.version('gh-release-downloader')
-    except importlib.metadata.PackageNotFoundError:
-        return "0.0.0"
-
 def get_system_info():
     """
     Detects the current OS and architecture.
@@ -176,7 +165,7 @@ def check_for_updates(token):
     Checks if there is a newer version available for gh-release-downloader.
     Returns the latest release if a newer version exists, None otherwise.
     """
-    current_version = get_current_version()
+    current_version = __version__
     
     try:
         current_semver = semver.VersionInfo.parse(current_version)
@@ -297,7 +286,7 @@ def perform_auto_update(token):
         click.echo("You are already running the latest version.")
         return False
     
-    current_version = get_current_version()
+    current_version = __version__
     latest_version = latest_release['tag_name']
     
     click.echo(f"New version available: {latest_version} (current: v{current_version})")
