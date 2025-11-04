@@ -23,3 +23,6 @@ gh-release-downloader = "gh_release_downloader:main"
 homepage = "https://github.com/gisce/gh-release-downloader"
 repository = "https://github.com/gisce/gh-release-downloader"
 documentation = "https://github.com/gisce/gh-release-downloader#readme"
+
+[tool.setuptools]
+py-modules = ["gh_release_downloader"]
