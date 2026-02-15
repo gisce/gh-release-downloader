@@ -365,7 +365,7 @@ PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 **Security note:** Create a secure token file:
 ```bash
 # Create a file with restricted permissions
-echo "ghp_your_token_here" > ~/.github_token
+echo "YOUR_GITHUB_TOKEN_HERE" > ~/.github_token
 chmod 600 ~/.github_token
 ```
 
@@ -404,7 +404,7 @@ chmod 600 ~/.github_token
 ```
 * * * * * command
 │ │ │ │ │
-│ │ │ │ └─── Day of week (0-7, Sunday=0 or 7)
+│ │ │ │ └─── Day of week (0-6, Sunday=0; some systems also accept 7 for Sunday)
 │ │ │ └───── Month (1-12)
 │ │ └─────── Day of month (1-31)
 │ └───────── Hour (0-23)
