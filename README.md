@@ -314,8 +314,8 @@ Add an entry to check for updates every hour:
 
 **Check every 15 minutes with Slack notifications:**
 ```cron
-# Every 15 minutes
-*/15 * * * * GITHUB_TOKEN="your_token" /usr/local/bin/gh-release-downloader myorg/myapp \
+# Every 15 minutes (token set in environment variables section at top of crontab)
+*/15 * * * * /usr/local/bin/gh-release-downloader myorg/myapp \
   --output-dir /var/www/app \
   --webhook-url "https://hooks.slack.com/services/YOUR/WEBHOOK/URL" \
   --url-client "https://app.example.com" \
@@ -339,13 +339,14 @@ Add an entry to check for updates every hour:
 Here's a complete crontab configuration for a production server:
 
 ```cron
-# Environment variables
-GITHUB_TOKEN=ghp_your_token_here
+# Environment variables (set at the top of crontab)
+# For better security, keep tokens in a separate file with restricted permissions
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
 # Production frontend - every hour
-0 * * * * /usr/local/bin/gh-release-downloader gisce/powerp-frontend \
+# Note: GITHUB_TOKEN should be set as a system environment variable or sourced from a secure file
+0 * * * * export GITHUB_TOKEN=$(cat ~/.github_token) && /usr/local/bin/gh-release-downloader gisce/powerp-frontend \
   --output-dir /var/www/production \
   --webhook-url "https://hooks.slack.com/services/XXX/YYY/ZZZ" \
   --url-client "https://app.example.com" \
@@ -353,7 +354,7 @@ PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
   >> /var/log/frontend-updater.log 2>&1
 
 # Staging frontend - every 20 minutes, include RC releases
-*/20 * * * * /usr/local/bin/gh-release-downloader gisce/powerp-frontend \
+*/20 * * * * export GITHUB_TOKEN=$(cat ~/.github_token) && /usr/local/bin/gh-release-downloader gisce/powerp-frontend \
   --pre-release-type rc \
   --output-dir /var/www/staging \
   --webhook-url "https://hooks.slack.com/services/XXX/YYY/ZZZ" \
@@ -361,22 +362,42 @@ PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
   >> /var/log/frontend-staging-updater.log 2>&1
 ```
 
+**Security note:** Create a secure token file:
+```bash
+# Create a file with restricted permissions
+echo "ghp_your_token_here" > ~/.github_token
+chmod 600 ~/.github_token
+```
+
 ### Important Cron Considerations
 
 1. **Use absolute paths**: Always use full paths to executables (`/usr/local/bin/gh-release-downloader`, not just `gh-release-downloader`)
 
-2. **Set environment variables**: Cron has a limited environment. Either:
-   - Set variables in the crontab itself (as shown above)
-   - Source your profile: `*/30 * * * * . ~/.bashrc && gh-release-downloader ...`
+2. **Secure token storage** (IMPORTANT for security):
+   - **Never** store tokens directly in crontab commands or environment variables section
+   - Store tokens in a separate file with restricted permissions: `chmod 600 ~/.github_token`
+   - Source the token file in your cron command: `export GITHUB_TOKEN=$(cat ~/.github_token)`
+   - Alternative: Set `GITHUB_TOKEN` as a system-wide environment variable in `/etc/environment` (requires proper system permissions)
 
-3. **Log output**: Redirect output to a log file for debugging:
+3. **Set environment variables**: Cron has a limited environment. Either:
+   - Set non-sensitive variables at the top of crontab (PATH, SHELL, etc.)
+   - Source your profile: `*/30 * * * * . ~/.bashrc && gh-release-downloader ...`
+   - Load tokens from secure files as shown above
+
+4. **Log output**: Redirect output to a log file for debugging:
    ```cron
    */30 * * * * command >> /var/log/updater.log 2>&1
    ```
 
-4. **Test your cron command**: Before adding to cron, test the exact command manually to ensure it works
+5. **Test your cron command**: Before adding to cron, test the exact command manually to ensure it works
 
-5. **Monitor logs**: Regularly check your log files to ensure the cron job is running successfully
+6. **Monitor logs**: Regularly check your log files to ensure the cron job is running successfully
+
+7. **File permissions**: Ensure your crontab and token files have appropriate permissions
+   ```bash
+   chmod 600 ~/.github_token  # Token file readable only by you
+   crontab -l > /tmp/mycron   # Backup your crontab
+   ```
 
 ### Cron Time Format Quick Reference
 
