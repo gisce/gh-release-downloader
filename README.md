@@ -97,9 +97,16 @@ export GITHUB_TOKEN="your_personal_access_token_here"
 ```
 
 To create a GitHub personal access token:
-1. Go to GitHub Settings → Developer settings → Personal access tokens
-2. Generate a new token with `repo` scope (for private repos) or `public_repo` (for public repos only)
-3. Copy the token and set it as shown above
+1. Go to GitHub Settings → Developer settings → Personal access tokens → Tokens (classic)
+2. Click "Generate new token (classic)"
+3. Give it a descriptive name (e.g., "gh-release-downloader")
+4. Select scopes:
+   - For private repositories: Check `repo` (full control)
+   - For public repositories only: Check `public_repo`
+5. Click "Generate token" and copy it immediately
+6. Set the token as shown above
+
+**Note:** GitHub also offers fine-grained tokens with more granular permissions. If using fine-grained tokens, ensure the token has read access to repository contents and metadata.
 
 ## Usage
 
@@ -246,7 +253,7 @@ When you run `gh-release-downloader`:
 ### When Auto-Update is Available
 
 | Installation Method | Auto-Update Support |
-|-------------------|-------------------|
+|---------------------|---------------------|
 | Pre-built binary | ✅ Yes (automatic) |
 | PyPI/pip installation | ❌ No (manual update required) |
 | Running from source | ❌ No (manual update required) |
@@ -530,7 +537,7 @@ The PyPI package is:
 ### Choosing the Right Installation
 
 | Use Case | Recommended Installation |
-|----------|-------------------------|
+|----------|--------------------------|
 | Production server deployment | 📦 Static Binary |
 | CI/CD pipelines | 📦 Static Binary |
 | Development and testing | 🐍 PyPI Package |
